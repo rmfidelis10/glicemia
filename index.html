@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="pt-BR"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Glicemia</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0f766e">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Glicemia">
+<style>
+:root{--bg:#f3f5f7;--c:#fff;--t:#1c1c1e;--m:#6b7280;--p:#0f766e;--r:#dc2626;--y:#d97706;--g:#16a34a;--l:#e5e7eb}
+@media(prefers-color-scheme:dark){:root{--bg:#0f1418;--c:#1a2128;--t:#e8eaed;--m:#9aa4af;--l:#2a333c}}
+*{box-sizing:border-box}
+body{margin:0;font-family:system-ui,-apple-system,sans-serif;background:var(--bg);color:var(--t)}
+header{position:sticky;top:0;z-index:5;background:var(--p);color:#fff;padding:calc(env(safe-area-inset-top,0px) + 12px) 16px 10px;display:flex;justify-content:space-between;align-items:baseline}
+header h1{margin:0;font-size:1.2rem}header span{font-size:.85rem;opacity:.9}
+main{max-width:640px;margin:auto;padding:12px 12px 90px}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--c);border-top:1px solid var(--l);padding-bottom:env(safe-area-inset-bottom,0px)}
+nav button{flex:1;border:0;background:none;color:var(--m);padding:8px 0;font-size:.7rem}
+nav button.on{color:var(--p);font-weight:700}nav i{display:block;font-style:normal;font-size:1.2rem}
+.card{background:var(--c);border-radius:12px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px #0002}
+label{display:block;font-size:.8rem;color:var(--m);margin-bottom:10px}
+input,select{display:block;width:100%;margin-top:4px;padding:10px;font-size:1rem;border:1px solid var(--l);border-radius:8px;background:var(--bg);color:var(--t)}
+.row{display:flex;gap:10px}.row label{flex:1}
+.b{width:100%;padding:12px;border:0;border-radius:10px;background:var(--p);color:#fff;font-size:1rem;font-weight:600;margin-top:6px}
+.b.s{background:var(--l);color:var(--t)}.b.d{background:var(--r)}
+.al{padding:10px 12px;border-radius:10px;margin-bottom:12px;font-size:.9rem;line-height:1.4}
+.al.r{background:#fee2e2;color:#991b1b}.al.y{background:#fef3c7;color:#92400e}.al.g{background:#dcfce7;color:#166534}
+.it{display:flex;align-items:center;gap:8px;background:var(--c);border-radius:10px;padding:10px;margin-bottom:8px;font-size:.85rem}.it>div:first-child{flex:1}
+.vals{display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.pill{padding:1px 8px;border-radius:99px;color:#fff;font-weight:700}.pill.r{background:var(--r)}.pill.y{background:var(--y)}.pill.g{background:var(--g)}
+.x{border:0;background:none;color:var(--m);font-size:1rem}
+.mut{color:var(--m);font-size:.85rem}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}.grid b{display:block;font-size:1.3rem}
+.bar{display:flex;height:16px;border-radius:8px;overflow:hidden;margin:10px 0 4px}.bar i{display:block}
+.bar .r{background:var(--r)}.bar .g{background:var(--g)}.bar .y{background:var(--y)}
+.leg{display:flex;justify-content:space-between;font-size:.8rem;font-weight:600}
+.leg .r{color:var(--r)}.leg .g{color:var(--g)}.leg .y{color:var(--y)}
+.big{font-size:2.6rem;font-weight:800;text-align:center;color:var(--p)}
+table{width:100%;border-collapse:collapse;font-size:.8rem}td,th{padding:5px 4px;border-bottom:1px solid var(--l);text-align:left}
+svg text{fill:var(--m);font-size:9px}
+@media print{header,nav,.no{display:none!important}body{background:#fff;color:#000}.card{box-shadow:none;border:1px solid #ccc}}
+</style></head>
+<body>
+<header><h1>Glicemia</h1><span id="ult"></span></header>
+<main id="app"></main>
+<nav>
+<button data-t="reg" onclick="setTab('reg')"><i>✚</i>Registrar</button>
+<button data-t="calc" onclick="setTab('calc')"><i>🧮</i>Calcular</button>
+<button data-t="gra" onclick="setTab('gra')"><i>📈</i>Gráficos</button>
+<button data-t="rel" onclick="setTab('rel')"><i>📄</i>Relatório</button>
+<button data-t="aj" onclick="setTab('aj')"><i>⚙️</i>Ajustes</button>
+</nav>
+<script>
+const $=s=>document.querySelector(s),K='glicemia_v1';
+let D;try{D=JSON.parse(localStorage.getItem(K))}catch(e){}
+D=D||{regs:[]};D.regs=D.regs||[];D.cfg={passo:1,dur:4,baixo:70,alto:180,...D.cfg};
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(D))}catch(e){alert('Não foi possível salvar neste navegador.')}};
+const num=v=>{const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?null:n};
+const pad=n=>String(n).padStart(2,'0'),r2=x=>Math.round(x*100)/100;
+const loc=t=>{const d=new Date(t);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())};
+const fmt=t=>new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+const fday=t=>new Date(t).toLocaleDateString('pt-BR');
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const cor=g=>g<D.cfg.baixo?'r':g>D.cfg.alto?'y':'g';
+const CX=['Jejum','Antes da refeição','Após a refeição','Antes de dormir','Madrugada','Atividade física','Outro'];
+let tab='reg',per=14,msg='',pre=null,lc=null;
+
+function aviso(g){
+ const c=D.cfg;if(g==null)return'';
+ if(g<54)return'<div class="al r"><b>Hipoglicemia grave (abaixo de 54).</b> Trate agora: 15 g de carboidrato de ação rápida e meça de novo em 15 min. Se estiver confuso ou sem conseguir engolir, peça ajuda e ligue 192.</div>';
+ if(g<c.baixo)return'<div class="al r"><b>Hipoglicemia (abaixo de '+c.baixo+').</b> Ingira 15 g de carboidrato de ação rápida, meça de novo em 15 min e repita se continuar baixa.</div>';
+ if(g>250)return'<div class="al y"><b>Glicemia acima de 250.</b> Siga a orientação da sua equipe: verifique cetonas e hidrate-se. Procure atendimento se houver náusea, vômito, dor abdominal ou respiração acelerada.</div>';
+ return''}
+function IOB(now){const d=D.cfg.dur||4;return D.regs.reduce((a,r)=>{if(r.tp!=='basal'&&r.i>0){const h=(now-r.t)/36e5;if(h>=0&&h<d)a+=r.i*(1-h/d)}return a},0)}
+const sel=days=>{const l=Date.now()-days*864e5;return D.regs.filter(r=>r.t>=l).sort((a,b)=>a.t-b.t)};
+function stats(rs){
+ const gs=rs.map(r=>r.g).filter(x=>x!=null),n=gs.length;if(!n)return null;
+ const m=gs.reduce((a,b)=>a+b,0)/n,sd=Math.sqrt(gs.reduce((a,b)=>a+(b-m)**2,0)/n);
+ const lo=gs.filter(x=>x<D.cfg.baixo).length,hi=gs.filter(x=>x>D.cfg.alto).length;
+ return{n,m,sd,cv:sd/m*100,min:Math.min(...gs),max:Math.max(...gs),lo:lo/n*100,hi:hi/n*100,ok:(n-lo-hi)/n*100,nlo:lo,ng:gs.filter(x=>x<54).length}}
+const bar=s=>'<div class="bar"><i class="r" style="width:'+s.lo+'%"></i><i class="g" style="width:'+s.ok+'%"></i><i class="y" style="width:'+s.hi+'%"></i></div><div class="leg"><span class="r">Baixo '+s.lo.toFixed(0)+'%</span><span class="g">No alvo '+s.ok.toFixed(0)+'%</span><span class="y">Alto '+s.hi.toFixed(0)+'%</span></div>';
+const perSel=()=>'<div class="card no"><label>Período<select onchange="per=+this.value;render()">'+[7,14,30,90].map(d=>'<option value="'+d+'"'+(d===per?' selected':'')+'>'+d+' dias</option>').join('')+'</select></label></div>';
+
+/* ---------- Registrar ---------- */
+function vReg(){
+ const p=pre||{};pre=null;
+ return msg+'<div class="card"><label>Data e hora<input id="t" type="datetime-local" value="'+loc(Date.now())+'"></label>'+
+ '<div class="row"><label>Glicemia (mg/dL)<input id="g" inputmode="decimal" value="'+(p.g??'')+'"></label><label>Carboidratos (g)<input id="c" inputmode="decimal" value="'+(p.c??'')+'"></label></div>'+
+ '<div class="row"><label>Insulina (U)<input id="i" inputmode="decimal" value="'+(p.i??'')+'"></label><label>Tipo<select id="tp"><option value="rapida">Rápida</option><option value="basal">Basal</option></select></label></div>'+
+ '<label>Contexto<select id="cx"><option value=""></option>'+CX.map(x=>'<option>'+x+'</option>').join('')+'</select></label>'+
+ '<label>Observação<input id="n"></label><button class="b" onclick="addReg()">Salvar registro</button></div>'+lista()}
+function lista(){
+ const rs=[...D.regs].sort((a,b)=>b.t-a.t).slice(0,15);
+ if(!rs.length)return'<p class="mut">Nenhum registro ainda.</p>';
+ return'<h3>Últimos registros</h3>'+rs.map(r=>'<div class="it"><div><b>'+fmt(r.t)+'</b><br><span class="mut">'+[r.cx,r.n].filter(Boolean).map(esc).join(' · ')+'</span></div><div class="vals">'+
+ (r.g!=null?'<span class="pill '+cor(r.g)+'">'+r.g+'</span>':'')+(r.c!=null?'<span>'+r.c+' g</span>':'')+(r.i!=null?'<span>'+r.i+' U '+(r.tp==='basal'?'basal':'rápida')+'</span>':'')+
+ '</div><button class="x" onclick="del('+r.id+')">✕</button></div>').join('')}
+function addReg(){
+ const g=num($('#g').value),c=num($('#c').value),i=num($('#i').value),t=new Date($('#t').value).getTime();
+ if(isNaN(t))return alert('Informe data e hora.');
+ if(g==null&&c==null&&i==null)return alert('Preencha ao menos um valor.');
+ if(g!=null&&(g<20||g>600))return alert('Confira a glicemia: valor fora do esperado (20 a 600).');
+ if(i!=null&&D.cfg.max&&i>D.cfg.max&&!confirm('Dose acima do máximo definido ('+D.cfg.max+' U). Registrar mesmo assim?'))return;
+ D.regs.push({id:Date.now()+Math.floor(Math.random()*1e3),t,g,c,i,tp:$('#tp').value,cx:$('#cx').value,n:$('#n').value.trim()});
+ save();msg=aviso(g)+'<div class="al g">Registro salvo.</div>';render()}
+function del(id){if(confirm('Apagar este registro?')){D.regs=D.regs.filter(r=>r.id!==id);save();render()}}
+
+/* ---------- Calcular ---------- */
+function vCalc(){return'<div class="card"><div class="row"><label>Glicemia atual (mg/dL)<input id="cg" inputmode="decimal" oninput="calc()"></label><label>Carboidratos (g)<input id="cc" inputmode="decimal" oninput="calc()"></label></div></div><div id="out"></div><p class="mut">Sugestão calculada apenas com os parâmetros dos Ajustes. Confirme sempre antes de aplicar e siga a orientação da sua equipe de saúde.</p>'}
+function calc(){
+ const c=D.cfg,g=num($('#cg').value),cb=num($('#cc').value)||0,o=$('#out');
+ if(!(c.icr>0&&c.isf>0&&c.alvo>0&&c.max>0)){o.innerHTML='<div class="al y">Antes de usar, preencha em Ajustes os valores definidos pela sua endocrinologista: relação insulina/carboidrato, fator de sensibilidade, glicemia alvo e dose máxima.</div>';return}
+ if(g==null){o.innerHTML='';return}
+ if(g<c.baixo){o.innerHTML=aviso(g)+'<div class="al y">Dose não calculada: glicemia baixa. Trate primeiro e meça de novo.</div>';return}
+ const iob=IOB(Date.now()),ref=cb/c.icr,corB=g>c.alvo?(g-c.alvo)/c.isf:0,corr=Math.max(0,corB-iob),total=ref+corr,passo=c.passo||1;
+ let dose=Math.round(total/passo)*passo,cap=false;
+ if(dose>c.max){dose=c.max;cap=true}
+ lc={g,cb,dose};
+ o.innerHTML=(g>250?aviso(g):'')+(cap?'<div class="al y">Dose limitada ao máximo definido ('+c.max+' U).</div>':'')+
+ '<div class="card"><div class="mut" style="text-align:center">Dose sugerida</div><div class="big">'+r2(dose)+' U</div><table>'+
+ '<tr><td>Refeição ('+cb+' g ÷ '+c.icr+')</td><td>'+r2(ref)+' U</td></tr>'+
+ '<tr><td>Correção ('+g+' → '+c.alvo+')</td><td>'+r2(corB)+' U</td></tr>'+
+ '<tr><td>Insulina ativa ('+r2(iob)+' U), descontada da correção</td><td>−'+r2(Math.min(iob,corB))+' U</td></tr>'+
+ '<tr><td>Total antes de arredondar</td><td>'+r2(total)+' U</td></tr></table>'+
+ '<button class="b" onclick="usar()">Usar no registro</button></div>'}
+function usar(){pre={g:lc.g,c:lc.cb||null,i:lc.dose};setTab('reg')}
+
+/* ---------- Gráficos ---------- */
+function chart(rs,days){
+ const pts=rs.filter(r=>r.g!=null);if(!pts.length)return'';
+ const W=340,H=200,L=28,R=6,T=8,B=18,c=D.cfg,t1=Date.now(),t0=t1-days*864e5,y0=40,ym=Math.max(300,Math.ceil(Math.max(...pts.map(r=>r.g))/50)*50);
+ const X=t=>L+(t-t0)/(t1-t0)*(W-L-R),Y=g=>T+(1-(Math.max(y0,g)-y0)/(ym-y0))*(H-T-B);
+ let s='<svg viewBox="0 0 '+W+' '+H+'" width="100%"><rect x="'+L+'" y="'+Y(c.alto)+'" width="'+(W-L-R)+'" height="'+(Y(c.baixo)-Y(c.alto))+'" fill="#16a34a" opacity=".15"/>';
+ s+=[c.baixo,c.alto].map(v=>'<line x1="'+L+'" x2="'+(W-R)+'" y1="'+Y(v)+'" y2="'+Y(v)+'" stroke="#9ca3af" stroke-dasharray="3 3" stroke-width=".6"/><text x="2" y="'+(Y(v)+3)+'">'+v+'</text>').join('');
+ s+='<polyline fill="none" stroke="#0f766e" stroke-width="1.2" opacity=".5" points="'+pts.map(r=>X(r.t)+','+Y(r.g)).join(' ')+'"/>';
+ s+=pts.map(r=>'<circle cx="'+X(r.t)+'" cy="'+Y(r.g)+'" r="3" fill="'+(r.g<c.baixo?'#dc2626':r.g>c.alto?'#d97706':'#16a34a')+'"/>').join('');
+ s+='<text x="'+L+'" y="'+(H-4)+'">'+new Date(t0).toLocaleDateString('pt-BR',{day:'2-digit',month:'2-digit'})+'</text><text x="'+(W-R)+'" y="'+(H-4)+'" text-anchor="end">hoje</text></svg>';
+ return s}
+function vGra(){
+ const rs=sel(per),s=stats(rs);
+ if(!s)return perSel()+'<p class="mut">Sem medições no período.</p>';
+ return perSel()+'<div class="card">'+chart(rs,per)+'</div><div class="card"><div class="grid"><div><b>'+s.m.toFixed(0)+'</b><span class="mut">média</span></div><div><b>'+s.cv.toFixed(0)+'%</b><span class="mut">variação (CV)</span></div><div><b>'+s.n+'</b><span class="mut">medições</span></div></div>'+bar(s)+'<p class="mut">Os percentuais usam as medições registradas (furo no dedo), não o tempo contínuo.</p></div>'}
+
+/* ---------- Relatório ---------- */
+function vRel(){
+ const rs=sel(per),s=stats(rs),c=D.cfg;
+ const dias=new Set(rs.map(r=>fday(r.t))).size||1;
+ const soma=tp=>rs.filter(r=>r.i!=null&&(tp==='basal'?r.tp==='basal':r.tp!=='basal')).reduce((a,r)=>a+r.i,0);
+ const carb=rs.reduce((a,r)=>a+(r.c||0),0);
+ const cxs=CX.map(x=>{const g=rs.filter(r=>r.cx===x&&r.g!=null).map(r=>r.g);return g.length?'<tr><td>'+x+'</td><td>'+g.length+'</td><td>'+(g.reduce((a,b)=>a+b,0)/g.length).toFixed(0)+'</td></tr>':''}).join('');
+ let h=perSel()+'<div class="card"><h3 style="margin-top:0">Relatório de glicemia</h3><p class="mut">'+fday(Date.now()-per*864e5)+' a '+fday(Date.now())+' · '+per+' dias</p>';
+ if(!s)return h+'<p class="mut">Sem medições no período.</p></div>';
+ h+='<div class="grid"><div><b>'+s.m.toFixed(0)+'</b><span class="mut">média mg/dL</span></div><div><b>'+s.sd.toFixed(0)+'</b><span class="mut">desvio padrão</span></div><div><b>'+s.min+'–'+s.max+'</b><span class="mut">mín–máx</span></div></div>'+bar(s)+
+ '<table style="margin-top:12px"><tr><td>Medições (média por dia)</td><td>'+s.n+' ('+(s.n/dias).toFixed(1)+')</td></tr><tr><td>Hipoglicemias (&lt;'+c.baixo+') / graves (&lt;54)</td><td>'+s.nlo+' / '+s.ng+'</td></tr>'+
+ '<tr><td>Insulina rápida por dia (média)</td><td>'+r2(soma('rapida')/dias)+' U</td></tr><tr><td>Insulina basal por dia (média)</td><td>'+r2(soma('basal')/dias)+' U</td></tr><tr><td>Carboidratos por dia (média)</td><td>'+Math.round(carb/dias)+' g</td></tr>'+
+ (c.icr?'<tr><td>Parâmetros em uso</td><td>RIC 1:'+c.icr+' · FS '+c.isf+' · alvo '+c.alvo+'</td></tr>':'')+'</table>';
+ if(cxs)h+='<h4>Por contexto</h4><table><tr><th>Contexto</th><th>Nº</th><th>Média</th></tr>'+cxs+'</table>';
+ h+='<h4>Registros</h4><table><tr><th>Data</th><th>Gli</th><th>Carb</th><th>Insulina</th><th>Contexto</th></tr>'+
+ rs.map(r=>'<tr><td>'+fmt(r.t)+'</td><td>'+(r.g??'')+'</td><td>'+(r.c??'')+'</td><td>'+(r.i!=null?r.i+(r.tp==='basal'?' B':' R'):'')+'</td><td>'+esc(r.cx)+(r.n?' · '+esc(r.n):'')+'</td></tr>').join('')+'</table>'+
+ '<button class="b no" onclick="print()">Imprimir ou salvar em PDF</button></div>';
+ return h}
+
+/* ---------- Ajustes ---------- */
+function vAj(){
+ const c=D.cfg,f=(id,l,v,ph)=>'<label>'+l+'<input id="'+id+'" inputmode="decimal" value="'+(v??'')+'" placeholder="'+(ph||'')+'"></label>';
+ return msg+'<div class="card"><h3 style="margin-top:0">Parâmetros</h3><p class="mut">Use os valores definidos pela sua endocrinologista. O app não calcula nem altera esses números.</p>'+
+ '<div class="row">'+f('icr','Relação insulina/carb. (g por 1 U)',c.icr)+f('isf','Fator de sensibilidade (mg/dL por 1 U)',c.isf)+'</div>'+
+ '<div class="row">'+f('alvo','Glicemia alvo (mg/dL)',c.alvo)+f('max','Dose máxima por aplicação (U)',c.max)+'</div>'+
+ '<div class="row"><label>Passo da caneta<select id="passo"><option value="1"'+(c.passo==1?' selected':'')+'>1 U</option><option value="0.5"'+(c.passo==.5?' selected':'')+'>0,5 U</option></select></label>'+f('dur','Duração da insulina rápida (h)',c.dur)+'</div>'+
+ '<div class="row">'+f('baixo','Limite baixo (mg/dL)',c.baixo)+f('alto','Limite alto (mg/dL)',c.alto)+'</div>'+
+ '<button class="b" onclick="saveCfg()">Salvar ajustes</button></div>'+
+ '<div class="card"><h3 style="margin-top:0">Seus dados</h3><p class="mut">Tudo fica guardado só neste aparelho. Faça backup de vez em quando, porque limpar os dados do navegador apaga os registros.</p>'+
+ '<button class="b s" onclick="exp()">Baixar backup</button><label class="b s" style="text-align:center;margin-top:6px;color:var(--t)">Restaurar backup<input type="file" accept="application/json" style="display:none" onchange="imp(this.files[0])"></label>'+
+ '<button class="b d" onclick="zerar()">Apagar tudo</button></div>'}
+function saveCfg(){
+ const f=k=>num($('#'+k).value),c={icr:f('icr'),isf:f('isf'),alvo:f('alvo'),max:f('max'),passo:+$('#passo').value,dur:f('dur')||4,baixo:f('baixo')||70,alto:f('alto')||180};
+ if(['icr','isf','alvo','max'].some(k=>c[k]!=null&&c[k]<=0))return alert('Os valores precisam ser maiores que zero.');
+ if(c.baixo>=c.alto)return alert('O limite baixo precisa ser menor que o alto.');
+ D.cfg=c;save();msg='<div class="al g">Ajustes salvos.</div>';render()}
+function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D)],{type:'application/json'}));a.download='glicemia-backup-'+loc(Date.now()).slice(0,10)+'.json';a.click()}
+function imp(f){if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.regs))throw 0;if(confirm('Substituir os dados atuais por este backup?')){D={regs:d.regs,cfg:{passo:1,dur:4,baixo:70,alto:180,...d.cfg}};save();render()}}catch(e){alert('Arquivo inválido.')}};r.readAsText(f)}
+function zerar(){if(confirm('Apagar todos os registros e ajustes deste aparelho? Isso não pode ser desfeito.')&&confirm('Tem certeza? Baixe um backup antes, se quiser guardar os dados.')){D={regs:[],cfg:{passo:1,dur:4,baixo:70,alto:180}};save();render()}}
+
+/* ---------- App ---------- */
+function render(){
+ document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
+ $('#app').innerHTML=({reg:vReg,calc:vCalc,gra:vGra,rel:vRel,aj:vAj})[tab]();msg='';
+ if(tab==='calc')calc();
+ const u=D.regs.filter(r=>r.g!=null).sort((a,b)=>b.t-a.t)[0];
+ $('#ult').textContent=u?'Última: '+u.g+' mg/dL · '+fmt(u.t):''}
+function setTab(t){tab=t;msg='';render();scrollTo(0,0)}
+render();
+if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
+</script>
+</body></html>
