@@ -64,8 +64,8 @@ svg text{fill:var(--m);font-size:9px}
 <script>
 const $=s=>document.querySelector(s),K='glicemia_v1';
 let D;try{D=JSON.parse(localStorage.getItem(K))}catch(e){}
-D=D||{regs:[]};D.regs=D.regs||[];D.rem=D.rem||[];D.cfg={passo:1,dur:4,baixo:70,alto:180,...D.cfg};
-const save=()=>{try{localStorage.setItem(K,JSON.stringify(D))}catch(e){alert('Não foi possível salvar neste navegador.')}};
+D=D||{regs:[]};D.regs=D.regs||[];D.rem=D.rem||[];D.del=D.del||[];D.regs.forEach(r=>{r.u=r.u||r.id});D.cu=D.cu||((D.cfg||{}).icr?Date.now():0);D.ru=D.ru||(D.rem.length?Date.now():0);D.cfg={passo:1,dur:4,baixo:70,alto:180,...D.cfg};
+const salva=()=>{try{localStorage.setItem(K,JSON.stringify(D))}catch(e){alert('Não foi possível salvar neste navegador.')}},save=()=>{salva();agenda()};
 const num=v=>{const n=parseFloat(String(v).replace(',','.'));return isNaN(n)?null:n};
 const pad=n=>String(n).padStart(2,'0'),r2=x=>Math.round(x*100)/100;
 const loc=t=>{const d=new Date(t);return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())+'T'+pad(d.getHours())+':'+pad(d.getMinutes())};
@@ -112,9 +112,9 @@ function addReg(){
  if(g==null&&c==null&&i==null)return alert('Preencha ao menos um valor.');
  if(g!=null&&(g<20||g>600))return alert('Confira a glicemia: valor fora do esperado (20 a 600).');
  if(i!=null&&D.cfg.max&&i>D.cfg.max&&!confirm('Dose acima do máximo definido ('+D.cfg.max+' U). Registrar mesmo assim?'))return;
- D.regs.push({id:Date.now()+Math.floor(Math.random()*1e3),t,g,c,i,tp:$('#tp').value,cx:$('#cx').value,n:$('#n').value.trim()});
+ D.regs.push({id:Date.now()+Math.floor(Math.random()*1e3),t,g,c,i,tp:$('#tp').value,cx:$('#cx').value,n:$('#n').value.trim(),u:Date.now()});
  save();msg=aviso(g)+'<div class="al g">Registro salvo.</div>';render()}
-function del(id){if(confirm('Apagar este registro?')){D.regs=D.regs.filter(r=>r.id!==id);save();render()}}
+function del(id){if(confirm('Apagar este registro?')){D.regs=D.regs.filter(r=>r.id!==id);D.del.push({id,u:Date.now()});save();render()}}
 
 /* ---------- Calcular ---------- */
 function vCalc(){return'<div class="card"><div class="row"><label>Glicemia atual (mg/dL)<input id="cg" inputmode="decimal" oninput="calc()"></label><label>Carboidratos (g)<input id="cc" inputmode="decimal" oninput="calc()"></label></div></div><div id="out"></div><p class="mut">Sugestão calculada apenas com os parâmetros dos Ajustes. Confirme sempre antes de aplicar e siga a orientação da sua equipe de saúde.</p>'}
@@ -180,17 +180,17 @@ function vAj(){
  '<div class="row"><label>Passo da caneta<select id="passo"><option value="1"'+(c.passo==1?' selected':'')+'>1 U</option><option value="0.5"'+(c.passo==.5?' selected':'')+'>0,5 U</option></select></label>'+f('dur','Duração da insulina rápida (h)',c.dur)+'</div>'+
  '<div class="row">'+f('baixo','Limite baixo (mg/dL)',c.baixo)+f('alto','Limite alto (mg/dL)',c.alto)+'</div>'+
  '<button class="b" onclick="saveCfg()">Salvar ajustes</button></div>'+
- '<div class="card"><h3 style="margin-top:0">Seus dados</h3><p class="mut">Tudo fica guardado só neste aparelho. Faça backup de vez em quando, porque limpar os dados do navegador apaga os registros.</p>'+
+ syCard()+'<div class="card"><h3 style="margin-top:0">Seus dados</h3><p class="mut">Os dados ficam neste aparelho e, com a sincronização ligada, também na sua planilha. Faça backup de vez em quando, porque limpar os dados do navegador apaga os registros.</p>'+
  '<button class="b s" onclick="exp()">Baixar backup</button><label class="b s" style="text-align:center;margin-top:6px;color:var(--t)">Restaurar backup<input type="file" accept="application/json" style="display:none" onchange="imp(this.files[0])"></label>'+
  '<button class="b d" onclick="zerar()">Apagar tudo</button></div>'}
 function saveCfg(){
  const f=k=>num($('#'+k).value),c={icr:f('icr'),isf:f('isf'),alvo:f('alvo'),max:f('max'),passo:+$('#passo').value,dur:f('dur')||4,baixo:f('baixo')||70,alto:f('alto')||180};
  if(['icr','isf','alvo','max'].some(k=>c[k]!=null&&c[k]<=0))return alert('Os valores precisam ser maiores que zero.');
  if(c.baixo>=c.alto)return alert('O limite baixo precisa ser menor que o alto.');
- D.cfg=c;save();msg='<div class="al g">Ajustes salvos.</div>';render()}
+ D.cfg=c;D.cu=Date.now();save();msg='<div class="al g">Ajustes salvos.</div>';render()}
 function exp(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(D)],{type:'application/json'}));a.download='glicemia-backup-'+loc(Date.now()).slice(0,10)+'.json';a.click()}
-function imp(f){if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.regs))throw 0;if(confirm('Substituir os dados atuais por este backup?')){D={regs:d.regs,rem:d.rem||[],cfg:{passo:1,dur:4,baixo:70,alto:180,...d.cfg}};save();render()}}catch(e){alert('Arquivo inválido.')}};r.readAsText(f)}
-function zerar(){if(confirm('Apagar todos os registros e ajustes deste aparelho? Isso não pode ser desfeito.')&&confirm('Tem certeza? Baixe um backup antes, se quiser guardar os dados.')){D={regs:[],rem:[],cfg:{passo:1,dur:4,baixo:70,alto:180}};save();render()}}
+function imp(f){if(!f)return;const r=new FileReader();r.onload=()=>{try{const d=JSON.parse(r.result);if(!Array.isArray(d.regs))throw 0;if(confirm('Substituir os dados atuais por este backup?')){D={regs:d.regs,rem:d.rem||[],cfg:{passo:1,dur:4,baixo:70,alto:180,...d.cfg}};const ag=Date.now();D.regs.forEach(r=>r.u=ag);D.del=[];D.cu=D.ru=ag;save();render()}}catch(e){alert('Arquivo inválido.')}};r.readAsText(f)}
+function zerar(){if(confirm('Apagar todos os registros e ajustes? Com a sincronização ligada, eles também são apagados da planilha. Isso não pode ser desfeito.')&&confirm('Tem certeza? Baixe um backup antes, se quiser guardar os dados.')){const ag=Date.now();D={regs:[],rem:[],del:D.regs.map(r=>({id:r.id,u:ag})),cu:ag,ru:ag,cfg:{passo:1,dur:4,baixo:70,alto:180}};save();render()}}
 
 /* ---------- Lembretes ---------- */
 const TP={g:['🩸','Medir glicemia'],i:['💉','Insulina'],m:['💊','Remédio'],a:['💧','Beber água']},DN=['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'];
@@ -214,14 +214,14 @@ function addRem(){
  const h=$('#rh').value,d=[...document.querySelectorAll('.rd')].filter(x=>x.checked).map(x=>+x.value);
  if(!h)return alert('Informe o horário.');if(!d.length)return alert('Escolha ao menos um dia.');
  D.rem.push({id:Date.now()+Math.floor(Math.random()*1e3),tp:$('#rtp').value,n:$('#rn').value.trim(),h,d,on:true});
- save();msg='<div class="al g">Lembrete adicionado. Para o alarme tocar com o app fechado, baixe o arquivo do calendário mais abaixo.</div>';render()}
+ D.ru=Date.now();save();msg='<div class="al g">Lembrete adicionado. Para o alarme tocar com o app fechado, baixe o arquivo do calendário mais abaixo.</div>';render()}
 function genAgua(){
  const iv=num($('#wi').value),m=t=>{const a=String(t||'').split(':');return(+a[0])*60+(+a[1]||0)},s=m($('#ws').value||'08:00'),e=m($('#we').value||'22:00');
  if(!(iv>=0.5)||e<s)return alert('Confira o intervalo e os horários.');
  let n=0;for(let t=s;t<=e;t+=Math.round(iv*60)){const h=pad(Math.floor(t/60))+':'+pad(t%60);if(!D.rem.some(r=>r.tp==='a'&&r.h===h)){D.rem.push({id:Date.now()+n,tp:'a',n:'',h,d:[0,1,2,3,4,5,6],on:true});n++}}
- save();msg='<div class="al g">'+n+' lembretes de água criados.</div>';render()}
-function tog(id){const r=D.rem.find(x=>x.id===id);if(r){r.on=!r.on;save();render()}}
-function delRem(id){D.rem=D.rem.filter(x=>x.id!==id);save();render()}
+ D.ru=Date.now();save();msg='<div class="al g">'+n+' lembretes de água criados.</div>';render()}
+function tog(id){const r=D.rem.find(x=>x.id===id);if(r){r.on=!r.on;D.ru=Date.now();save();render()}}
+function delRem(id){D.rem=D.rem.filter(x=>x.id!==id);D.ru=Date.now();save();render()}
 function perm(){if(!('Notification' in window))return alert('Este navegador não oferece notificações. Use o arquivo de calendário.');Notification.requestPermission().then(()=>render())}
 function icsTexto(){
  const rs=D.rem.filter(r=>r.on);if(!rs.length)return'';
@@ -251,16 +251,67 @@ function dispara(r){
  try{if(Notification.permission==='granted')navigator.serviceWorker.ready.then(w=>w.showNotification('Lembrete',{body:tx,tag:'rem-'+r.id,renotify:true,vibrate:[300,150,300],icon:'icon-192.png'}))}catch(e){}}
 function fecha(){$('#bn').hidden=true;$('#bl').innerHTML=''}
 
+/* ---------- Sincronização (n8n + planilha) ---------- */
+const DEFURL='https://rmfidelis-n8n.ddns.net/webhook/glicemia-sync';
+let SY={};try{SY=JSON.parse(localStorage.getItem('glicemia_sync'))||{}}catch(e){}
+let busy=false,st='',tm;
+const saveSY=()=>{try{localStorage.setItem('glicemia_sync',JSON.stringify(SY))}catch(e){}};
+const agenda=()=>{if(SY.url){clearTimeout(tm);tm=setTimeout(sync,2500)}};
+function hdr(){
+ const u=D.regs.filter(r=>r.g!=null).sort((a,b)=>b.t-a.t)[0];
+ $('#ult').textContent=(u?'Última: '+u.g+' mg/dL · '+fmt(u.t):'')+(SY.url?(busy?' · …':st.startsWith('Falha')?' · ⚠':st?' · ✓':''):'')}
+function syCard(){
+ return'<div class="card"><h3 style="margin-top:0">Sincronização</h3><p class="mut">Guarda os dados na sua planilha, via n8n, e sincroniza entre aparelhos. Funciona offline e sincroniza quando a internet voltar.</p>'+
+ '<label>Endereço<input id="sy_u" value="'+esc(SY.url||DEFURL)+'"></label><label>Chave de acesso<input id="sy_k" type="password" autocomplete="off" value="'+esc(SY.chave||'')+'"></label>'+
+ '<button class="b" onclick="syConf()">Salvar e sincronizar</button>'+(SY.url?'<button class="b s" onclick="sync()">Sincronizar agora</button><button class="b s" onclick="syOff()">Desconectar</button>':'')+
+ '<p class="mut">'+esc(busy?'Sincronizando…':st||(SY.url?'Conectado.':'Não conectado.'))+'</p></div>'}
+function syConf(){
+ const u=$('#sy_u').value.trim(),k=$('#sy_k').value.trim();
+ if(!/^https:\/\//.test(u)||!k)return alert('Informe o endereço (começando com https://) e a chave de acesso.');
+ SY={url:u,chave:k,last:0};saveSY();st='';sync()}
+function syOff(){if(confirm('Desconectar a sincronização deste aparelho? Os dados continuam aqui e na planilha.')){SY={};saveSY();st='';render()}}
+function aplica(rows){
+ let mud=false;
+ for(const r of rows){
+  if(r.id==='__cfg'){if(r.u>(D.cu||0)){try{D.cfg={passo:1,dur:4,baixo:70,alto:180,...JSON.parse(r.j)};D.cu=r.u;mud=true}catch(e){}}continue}
+  if(r.id==='__rem'){if(r.u>(D.ru||0)){try{D.rem=JSON.parse(r.j);D.ru=r.u;mud=true}catch(e){}}continue}
+  const i=D.regs.findIndex(x=>x.id===r.id);
+  if(r.x){if(i>=0&&r.u>=D.regs[i].u){D.regs.splice(i,1);mud=true}continue}
+  const reg={id:r.id,t:r.t,g:r.g,c:r.c,i:r.i,tp:r.tp,cx:r.cx,n:r.n,u:r.u};
+  if(i<0){if(!D.del.some(d=>d.id===r.id&&d.u>=r.u)){D.regs.push(reg);mud=true}}
+  else if(r.u>D.regs[i].u){D.regs[i]=reg;mud=true}}
+ return mud}
+async function sync(){
+ if(!SY.url||!SY.chave||busy)return;
+ busy=true;hdr();
+ const ini=Date.now(),last=SY.last||0;
+ const regs=D.regs.filter(r=>r.u>last).concat(D.del.filter(d=>d.u>last).map(d=>({id:d.id,x:1,u:d.u})));
+ if(D.cu>last)regs.push({id:'__cfg',j:JSON.stringify(D.cfg),u:D.cu});
+ if(D.ru>last)regs.push({id:'__rem',j:JSON.stringify(D.rem),u:D.ru});
+ try{
+  const ctl=new AbortController(),to=setTimeout(()=>ctl.abort(),45000);
+  const res=await fetch(SY.url,{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({chave:SY.chave,regs}),signal:ctl.signal});
+  clearTimeout(to);
+  if(res.status===401)throw new Error('chave incorreta.');
+  if(!res.ok)throw new Error('o servidor respondeu '+res.status+'.');
+  const j=await res.json();if(!j||!j.ok)throw new Error('resposta inválida.');
+  const mud=aplica(j.regs||[]);
+  SY.last=ini;D.del=D.del.filter(d=>d.u>ini);saveSY();salva();
+  st='Sincronizado em '+fmt(Date.now());busy=false;
+  const a=document.activeElement;if((mud||tab==='aj')&&!(a&&/INPUT|SELECT/.test(a.tagName)))render();else hdr();
+ }catch(e){
+  busy=false;st='Falha ao sincronizar: '+(e.name==='AbortError'?'tempo esgotado.':e instanceof TypeError?'sem conexão ou bloqueio (confira o endereço e o CORS do n8n).':e.message);
+  if(tab==='aj')render();else hdr()}}
+
 /* ---------- App ---------- */
 function render(){
  document.querySelectorAll('nav button').forEach(b=>b.classList.toggle('on',b.dataset.t===tab));
  $('#app').innerHTML=({reg:vReg,calc:vCalc,lem:vLem,gra:vGra,rel:vRel,aj:vAj})[tab]();msg='';
  if(tab==='calc')calc();
- const u=D.regs.filter(r=>r.g!=null).sort((a,b)=>b.t-a.t)[0];
- $('#ult').textContent=u?'Última: '+u.g+' mg/dL · '+fmt(u.t):''}
+ hdr()}
 function setTab(t){tab=t;msg='';render();scrollTo(0,0)}
-render();
-setInterval(checa,20000);document.addEventListener('visibilitychange',()=>{if(!document.hidden)checa()});
+render();sync();
+setInterval(checa,20000);setInterval(sync,3e5);document.addEventListener('visibilitychange',()=>{if(!document.hidden){checa();sync()}});
 if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js');
 </script>
 </body></html>
