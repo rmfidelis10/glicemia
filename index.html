@@ -230,7 +230,7 @@ async function envia(){
   clearTimeout(to);
   if(res.status===401){const e1=await res.json().catch(()=>({}));if(e1.erro==='limite')throw new Error('limite diário de mensagens do assistente atingido. Volte amanhã.');SY.token='';saveSY();iaBusy=false;am='in';aMsg='<div class="al y">Sua sessão expirou. Entre novamente.</div>';render();return}
   if(!res.ok)throw new Error('o servidor respondeu '+res.status+' (o fluxo do assistente está publicado no n8n?).');
-  const j=await res.json();if(!j||!j.ok)throw new Error((j&&j.erro)||'sem resposta.');
+  const j=await res.json().catch(()=>null);if(!j||!j.ok)throw new Error((j&&j.erro)||'sem resposta.');
   CH.push({r:'a',c:j.resposta});
  }catch(e){CH.push({r:'e',c:'Não consegui responder: '+(e.name==='AbortError'?'tempo esgotado.':e instanceof TypeError?'sem conexão ou o fluxo do assistente não está ativo no n8n.':e.message)})}
  iaBusy=false;if(tab==='ia'){render();scrollTo(0,document.body.scrollHeight)}}
@@ -307,31 +307,39 @@ function hdr(){
  $('#ult').textContent=(u?'Última: '+u.g+' mg/dL · '+fmt(u.t):'')+(SY.token?(busy?' · …':st.startsWith('Falha')?' · ⚠':st?' · ✓':''):'')}
 function syCard(){
  return'<div class="card"><h3 style="margin-top:0">Conta</h3><p class="mut">Conectado como <b>'+esc(SY.email||'')+'</b>. Seus dados ficam guardados na sua conta e sincronizam entre os aparelhos em que você entrar.</p><button class="b s" onclick="sync()">Sincronizar agora</button><button class="b s" onclick="sair()">Sair</button><p class="mut">'+esc(busy?'Sincronizando…':st||'Conectado.')+'</p></div>'}
-let am='in',aMsg='',aEm='';
+let am='in',aMsg='',aEm='',aAc=false;
 function vAuth(){
  const n=am==='new';
  return'<div class="card" style="margin-top:20px"><h2 style="margin-top:0">'+(n?'Criar conta':'Entrar')+'</h2>'+aMsg+
  '<label>E-mail<input id="a_e" type="email" inputmode="email" autocomplete="username" value="'+esc(aEm)+'"></label>'+
  '<label>Senha'+(n?' (mínimo 8 caracteres)':'')+'<input id="a_s" type="password" autocomplete="'+(n?'new-password':'current-password')+'"></label>'+
- (n?'<label>Repita a senha<input id="a_s2" type="password" autocomplete="new-password"></label><label class="ck"><input type="checkbox" id="a_ok"><span>Li e concordo com a <a href="politica.html" target="_blank">Política de Privacidade e os Termos de Uso</a> e entendo que este app é um apoio e não substitui a orientação da minha equipe de saúde.</span></label>':'')+
+ (n?'<label>Repita a senha<input id="a_s2" type="password" autocomplete="new-password"></label><label class="ck"><input type="checkbox" id="a_ok'+(aAc?'" checked><span>':'"><span>')+'Li e concordo com a <a href="politica.html" target="_blank">Política de Privacidade e os Termos de Uso</a> e entendo que este app é um apoio e não substitui a orientação da minha equipe de saúde.</span></label>':'')+
  '<button class="b" onclick="'+(n?'criar()':'entrar()')+'">'+(n?'Criar conta':'Entrar')+'</button>'+
  '<button class="b s" onclick="am=\''+(n?'in':'new')+'\';aMsg=\'\';render()">'+(n?'Já tenho conta':'Criar uma conta')+'</button></div>'}
 const ERRO={email_em_uso:'Este e-mail já tem conta. Use "Entrar".',credenciais:'E-mail ou senha incorretos.',dados:'Confira o e-mail e a senha (mínimo 8 caracteres).',aceite:'É preciso aceitar a política para criar a conta.',muitas_tentativas:'Muitas tentativas. Aguarde alguns minutos e tente de novo.'};
 async function autentica(acao){
  const email=$('#a_e').value.trim().toLowerCase(),senha=$('#a_s').value;aEm=email;
- if(acao==='cadastro'&&$('#a_s2').value!==senha){aMsg='<div class="al y">As senhas não conferem.</div>';return render()}
- const aceite=acao==='cadastro'?$('#a_ok').checked:undefined;
+ const aviso=t=>{aMsg='<div class="al y">'+t+'</div>';render()};
+ if(!email||!senha)return aviso('Informe o e-mail e a senha.');
+ if(acao==='cadastro'){
+  aAc=$('#a_ok').checked;
+  if(senha.length<8)return aviso('A senha precisa ter pelo menos 8 caracteres.');
+  if($('#a_s2').value!==senha)return aviso('As senhas não conferem.');
+  if(!aAc)return aviso('Marque a caixa para aceitar a política e criar a conta.');
+ }
+ const aceite=acao==='cadastro'?true:undefined;
  try{
   const res=await fetch((SY.url||DEFURL).replace(/[^/]*$/,'glicemia-conta'),{method:'POST',headers:{'Content-Type':'text/plain'},body:JSON.stringify({acao,email,senha,aceite})});
   if(!res.ok)throw new Error('o servidor respondeu '+res.status+' (o fluxo de contas está publicado no n8n?).');
-  const j=await res.json();
+  const j=await res.json().catch(()=>null);
+  if(!j)throw new Error('o servidor respondeu sem dados (confira se o fluxo de contas está publicado e sem erro no n8n).');
   if(!j.ok){aMsg='<div class="al y">'+esc(ERRO[j.erro]||'Não foi possível concluir.')+'</div>';return render()}
   if(D.owner&&D.owner!==j.email&&(D.regs.length||D.rem.length)){
    if(!confirm('Este aparelho tem dados de outra conta. Para entrar, eles serão apagados daqui (continuam guardados na outra conta). Continuar?'))return;
    D={regs:[],rem:[],del:[],cu:0,ru:0,cfg:{passo:1,dur:4,baixo:70,alto:180,calcOn:false}};
   }
   D.owner=j.email;salva();
-  SY={url:SY.url||DEFURL,token:j.token,email:j.email,last:0};saveSY();am='in';aMsg='';aEm='';st='';render();sync()
+  SY={url:SY.url||DEFURL,token:j.token,email:j.email,last:0};saveSY();am='in';aMsg='';aEm='';aAc=false;st='';render();sync()
  }catch(e){aMsg='<div class="al y">'+esc(e instanceof TypeError?'Sem conexão com o servidor.':'Erro: '+e.message)+'</div>';render()}}
 const entrar=()=>autentica('login'),criar=()=>autentica('cadastro');
 async function sair(){
@@ -364,7 +372,7 @@ async function sync(){
   clearTimeout(to);
   if(res.status===401){busy=false;SY.token='';saveSY();st='';am='in';aMsg='<div class="al y">Sua sessão expirou. Entre novamente.</div>';render();return}
   if(!res.ok)throw new Error('o servidor respondeu '+res.status+'.');
-  const j=await res.json();if(!j||!j.ok)throw new Error('resposta inválida.');
+  const j=await res.json().catch(()=>null);if(!j||!j.ok)throw new Error('resposta inválida.');
   const mud=aplica(j.regs||[]);
   if(j.token)SY.token=j.token;
   SY.last=ini;D.del=D.del.filter(d=>d.u>ini);saveSY();salva();
