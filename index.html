@@ -97,7 +97,7 @@ function vReg(){
  const p=pre||{};pre=null;
  return msg+'<div class="card"><label>Data e hora<input id="t" type="datetime-local" value="'+loc(Date.now())+'"></label>'+
  '<div class="row"><label>Glicemia (mg/dL)<input id="g" inputmode="decimal" value="'+(p.g??'')+'"></label><label>Carboidratos (g)<input id="c" inputmode="decimal" value="'+(p.c??'')+'"></label></div>'+
- '<div class="row"><label>Insulina (U)<input id="i" inputmode="decimal" value="'+(p.i??'')+'"></label><label>Tipo<select id="tp"><option value="rapida">Rápida</option><option value="basal">Basal</option></select></label></div>'+
+ '<div class="row"><label>Insulina rápida (U)<input id="i" inputmode="decimal" value="'+(p.i??'')+'"></label><label>Insulina basal (U)<input id="b" inputmode="decimal"></label></div>'+
  '<label>Contexto<select id="cx"><option value=""></option>'+CX.map(x=>'<option>'+x+'</option>').join('')+'</select></label>'+
  '<label>Observação<input id="n"></label><button class="b" onclick="addReg()">Salvar registro</button></div>'+lista()}
 function lista(){
@@ -107,12 +107,15 @@ function lista(){
  (r.g!=null?'<span class="pill '+cor(r.g)+'">'+r.g+'</span>':'')+(r.c!=null?'<span>'+r.c+' g</span>':'')+(r.i!=null?'<span>'+r.i+' U '+(r.tp==='basal'?'basal':'rápida')+'</span>':'')+
  '</div><button class="x" onclick="del('+r.id+')">✕</button></div>').join('')}
 function addReg(){
- const g=num($('#g').value),c=num($('#c').value),i=num($('#i').value),t=new Date($('#t').value).getTime();
+ const pos=v=>v>0?v:null,g=num($('#g').value),c=num($('#c').value),i=pos(num($('#i').value)),b=pos(num($('#b').value)),t=new Date($('#t').value).getTime();
  if(isNaN(t))return alert('Informe data e hora.');
- if(g==null&&c==null&&i==null)return alert('Preencha ao menos um valor.');
+ if(g==null&&c==null&&i==null&&b==null)return alert('Preencha ao menos um valor.');
  if(g!=null&&(g<20||g>600))return alert('Confira a glicemia: valor fora do esperado (20 a 600).');
- if(i!=null&&D.cfg.max&&i>D.cfg.max&&!confirm('Dose acima do máximo definido ('+D.cfg.max+' U). Registrar mesmo assim?'))return;
- D.regs.push({id:Date.now()+Math.floor(Math.random()*1e3),t,g,c,i,tp:$('#tp').value,cx:$('#cx').value,n:$('#n').value.trim(),u:Date.now()});
+ if(i!=null&&D.cfg.max&&i>D.cfg.max&&!confirm('Dose de insulina rápida acima do máximo definido ('+D.cfg.max+' U). Registrar mesmo assim?'))return;
+ if(b!=null&&b>100)return alert('Confira a dose de insulina basal: valor fora do esperado.');
+ const id=Date.now()+Math.floor(Math.random()*1e3),u=Date.now(),cx=$('#cx').value,n=$('#n').value.trim();
+ if(g!=null||c!=null||i!=null)D.regs.push({id,t,g,c,i,tp:'rapida',cx,n,u});
+ if(b!=null)D.regs.push({id:id+1,t,g:null,c:null,i:b,tp:'basal',cx,n,u});
  save();msg=aviso(g)+'<div class="al g">Registro salvo.</div>';render()}
 function del(id){if(confirm('Apagar este registro?')){D.regs=D.regs.filter(r=>r.id!==id);D.del.push({id,u:Date.now()});save();render()}}
 
