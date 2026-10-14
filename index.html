@@ -73,7 +73,7 @@ const fmt=t=>new Date(t).toLocaleString('pt-BR',{day:'2-digit',month:'2-digit',h
 const fday=t=>new Date(t).toLocaleDateString('pt-BR');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cor=g=>g<D.cfg.baixo?'r':g>D.cfg.alto?'y':'g';
-const CX=['Jejum','Antes da refeição','Após a refeição','Antes de dormir','Madrugada','Atividade física','Outro'];
+const CX=['Café da manhã','Pós-café','Almoço','Pós-almoço','Jantar','Antes de dormir','Outros'];
 let tab='reg',per=14,msg='',pre=null,lc=null;
 
 function aviso(g){
@@ -158,7 +158,7 @@ function vRel(){
  const dias=new Set(rs.map(r=>fday(r.t))).size||1;
  const soma=tp=>rs.filter(r=>r.i!=null&&(tp==='basal'?r.tp==='basal':r.tp!=='basal')).reduce((a,r)=>a+r.i,0);
  const carb=rs.reduce((a,r)=>a+(r.c||0),0);
- const cxs=CX.map(x=>{const g=rs.filter(r=>r.cx===x&&r.g!=null).map(r=>r.g);return g.length?'<tr><td>'+x+'</td><td>'+g.length+'</td><td>'+(g.reduce((a,b)=>a+b,0)/g.length).toFixed(0)+'</td></tr>':''}).join('');
+ const cxs=[...CX,...new Set(rs.map(r=>r.cx).filter(x=>x&&!CX.includes(x)))].map(x=>{const g=rs.filter(r=>r.cx===x&&r.g!=null).map(r=>r.g);return g.length?'<tr><td>'+x+'</td><td>'+g.length+'</td><td>'+(g.reduce((a,b)=>a+b,0)/g.length).toFixed(0)+'</td></tr>':''}).join('');
  let h=perSel()+'<div class="card"><h3 style="margin-top:0">Relatório de glicemia</h3><p class="mut">'+fday(Date.now()-per*864e5)+' a '+fday(Date.now())+' · '+per+' dias</p>';
  if(!s)return h+'<p class="mut">Sem medições no período.</p></div>';
  h+='<div class="grid"><div><b>'+s.m.toFixed(0)+'</b><span class="mut">média mg/dL</span></div><div><b>'+s.sd.toFixed(0)+'</b><span class="mut">desvio padrão</span></div><div><b>'+s.min+'–'+s.max+'</b><span class="mut">mín–máx</span></div></div>'+bar(s)+
