@@ -313,7 +313,7 @@ function vAuth(){
  return'<div class="card" style="margin-top:20px"><h2 style="margin-top:0">'+(n?'Criar conta':'Entrar')+'</h2>'+aMsg+
  '<label>E-mail<input id="a_e" type="email" inputmode="email" autocomplete="username" value="'+esc(aEm)+'"></label>'+
  '<label>Senha'+(n?' (mínimo 8 caracteres)':'')+'<input id="a_s" type="password" autocomplete="'+(n?'new-password':'current-password')+'"></label>'+
- (n?'<label>Repita a senha<input id="a_s2" type="password" autocomplete="new-password"></label><label class="ck"><input type="checkbox" id="a_ok"><span>Li e concordo com a <a href="politica.html" target="_blank">Política de Privacidade</a> e entendo que este app é um apoio e não substitui a orientação da minha equipe de saúde.</span></label>':'')+
+ (n?'<label>Repita a senha<input id="a_s2" type="password" autocomplete="new-password"></label><label class="ck"><input type="checkbox" id="a_ok"><span>Li e concordo com a <a href="politica.html" target="_blank">Política de Privacidade e os Termos de Uso</a> e entendo que este app é um apoio e não substitui a orientação da minha equipe de saúde.</span></label>':'')+
  '<button class="b" onclick="'+(n?'criar()':'entrar()')+'">'+(n?'Criar conta':'Entrar')+'</button>'+
  '<button class="b s" onclick="am=\''+(n?'in':'new')+'\';aMsg=\'\';render()">'+(n?'Já tenho conta':'Criar uma conta')+'</button></div>'}
 const ERRO={email_em_uso:'Este e-mail já tem conta. Use "Entrar".',credenciais:'E-mail ou senha incorretos.',dados:'Confira o e-mail e a senha (mínimo 8 caracteres).',aceite:'É preciso aceitar a política para criar a conta.',muitas_tentativas:'Muitas tentativas. Aguarde alguns minutos e tente de novo.'};
