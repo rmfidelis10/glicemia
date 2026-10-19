@@ -84,7 +84,7 @@ const fday=t=>new Date(t).toLocaleDateString('pt-BR');
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const cor=g=>g<D.cfg.baixo?'r':g>D.cfg.alto?'y':'g';
 const CX=['Café da manhã','Pós-café','Almoço','Pós-almoço','Jantar','Antes de dormir','Outros'];
-let tab='reg',per=14,msg='',pre=null,lc=null;
+let tab='reg',per=14,msg='',pre=null,lc=null,edId=null,lim=15;
 
 function aviso(g){
  const c=D.cfg;if(g==null)return'';
@@ -104,18 +104,23 @@ const perSel=()=>'<div class="card no"><label>Período<select onchange="per=+thi
 
 /* ---------- Registrar ---------- */
 function vReg(){
- const p=pre||{};pre=null;
- return msg+'<div class="card"><label>Data e hora<input id="t" type="datetime-local" value="'+loc(Date.now())+'"></label>'+
+ const E=edId?D.regs.find(x=>x.id===edId):null;if(edId&&!E)edId=null;
+ const p=pre||(E?{t:E.t,g:E.g,c:E.c,i:E.tp==='basal'?null:E.i,b:E.tp==='basal'?E.i:null,cx:E.cx,n:E.n}:{});pre=null;
+ const cxs=[...CX,...(p.cx&&!CX.includes(p.cx)?[p.cx]:[])];
+ return msg+(E?'<div class="al y">Editando o registro de '+fmt(E.t)+'. Salve para aplicar ou cancele.</div>':'')+
+ '<div class="card"><label>Data e hora<input id="t" type="datetime-local" value="'+loc(p.t||Date.now())+'"></label>'+
  '<div class="row"><label>Glicemia (mg/dL)<input id="g" inputmode="decimal" value="'+(p.g??'')+'"></label><label>Carboidratos (g)<input id="c" inputmode="decimal" value="'+(p.c??'')+'"></label></div>'+
- '<div class="row"><label>Insulina rápida (U)<input id="i" inputmode="decimal" value="'+(p.i??'')+'"></label><label>Insulina basal (U)<input id="b" inputmode="decimal"></label></div>'+
- '<label>Contexto<select id="cx"><option value=""></option>'+CX.map(x=>'<option>'+x+'</option>').join('')+'</select></label>'+
- '<label>Observação<input id="n"></label><button class="b" onclick="addReg()">Salvar registro</button></div>'+lista()}
+ '<div class="row"><label>Insulina rápida (U)<input id="i" inputmode="decimal" value="'+(p.i??'')+'"'+(E&&E.tp==='basal'?' disabled':'')+'></label><label>Insulina basal (U)<input id="b" inputmode="decimal" value="'+(p.b??'')+'"'+(E&&E.tp!=='basal'?' disabled':'')+'></label></div>'+
+ '<label>Contexto<select id="cx"><option value=""></option>'+cxs.map(x=>'<option'+(x===p.cx?' selected':'')+'>'+esc(x)+'</option>').join('')+'</select></label>'+
+ '<label>Observação<input id="n" value="'+esc(p.n||'')+'"></label><button class="b" onclick="addReg()">'+(E?'Salvar alterações':'Salvar registro')+'</button>'+
+ (E?'<button class="b s" onclick="edId=null;render()">Cancelar edição</button>':'')+'</div>'+lista()}
+function edita(id){if(D.regs.some(r=>r.id===id)){edId=id;tab='reg';render();scrollTo(0,0)}}
 function lista(){
- const rs=[...D.regs].sort((a,b)=>b.t-a.t).slice(0,15);
+ const rs=[...D.regs].sort((a,b)=>b.t-a.t).slice(0,lim);
  if(!rs.length)return'<p class="mut">Nenhum registro ainda.</p>';
  return'<h3>Últimos registros</h3>'+rs.map(r=>'<div class="it"><div><b>'+fmt(r.t)+'</b><br><span class="mut">'+[r.cx,r.n].filter(Boolean).map(esc).join(' · ')+'</span></div><div class="vals">'+
  (r.g!=null?'<span class="pill '+cor(r.g)+'">'+r.g+'</span>':'')+(r.c!=null?'<span>'+r.c+' g</span>':'')+(r.i!=null?'<span>'+r.i+' U '+(r.tp==='basal'?'basal':'rápida')+'</span>':'')+
- '</div><button class="x" onclick="del('+r.id+')">✕</button></div>').join('')}
+ '</div><button class="x" onclick="edita('+r.id+')">✎</button><button class="x" onclick="del('+r.id+')">✕</button></div>').join('')+(D.regs.length>lim?'<button class="b s" onclick="lim+=30;render()">Mostrar mais registros</button>':'')}
 function addReg(){
  const pos=v=>v>0?v:null,g=num($('#g').value),c=num($('#c').value),i=pos(num($('#i').value)),b=pos(num($('#b').value)),t=new Date($('#t').value).getTime();
  if(isNaN(t))return alert('Informe data e hora.');
@@ -123,11 +128,18 @@ function addReg(){
  if(g!=null&&(g<20||g>600))return alert('Confira a glicemia: valor fora do esperado (20 a 600).');
  if(i!=null&&D.cfg.max&&i>D.cfg.max&&!confirm('Dose de insulina rápida acima do máximo definido ('+D.cfg.max+' U). Registrar mesmo assim?'))return;
  if(b!=null&&b>100)return alert('Confira a dose de insulina basal: valor fora do esperado.');
+  if(edId){
+  const r=D.regs.find(x=>x.id===edId);
+  if(r){
+   if(r.tp==='basal'&&b==null)return alert('Informe a dose de insulina basal ou apague o registro com o ✕.');
+   r.t=t;r.g=g;r.c=c;r.i=r.tp==='basal'?b:i;r.cx=$('#cx').value;r.n=$('#n').value.trim();r.u=Date.now();
+   edId=null;save();msg=aviso(g)+'<div class="al g">Registro atualizado.</div>';render();return}
+  edId=null}
  const id=Date.now()+Math.floor(Math.random()*1e3),u=Date.now(),cx=$('#cx').value,n=$('#n').value.trim();
  if(g!=null||c!=null||i!=null)D.regs.push({id,t,g,c,i,tp:'rapida',cx,n,u});
  if(b!=null)D.regs.push({id:id+1,t,g:null,c:null,i:b,tp:'basal',cx,n,u});
  save();msg=aviso(g)+'<div class="al g">Registro salvo.</div>';render()}
-function del(id){if(confirm('Apagar este registro?')){D.regs=D.regs.filter(r=>r.id!==id);D.del.push({id,u:Date.now()});save();render()}}
+function del(id){if(confirm('Apagar este registro?')){if(edId===id)edId=null;D.regs=D.regs.filter(r=>r.id!==id);D.del.push({id,u:Date.now()});save();render()}}
 
 /* ---------- Calcular ---------- */
 function vCalc(){return'<div class="card"><div class="row"><label>Glicemia atual (mg/dL)<input id="cg" inputmode="decimal" oninput="calc()"></label><label>Carboidratos (g)<input id="cc" inputmode="decimal" oninput="calc()"></label></div></div><div id="out"></div><p class="mut">Sugestão calculada apenas com os parâmetros dos Ajustes. Confirme sempre antes de aplicar e siga a orientação da sua equipe de saúde.</p>'}
